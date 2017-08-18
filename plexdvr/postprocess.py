@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import re
 import datetime
+import time
 import subprocess
 import tempfile
 import os
@@ -98,9 +99,9 @@ def transcode(file_path):
     logger.info("Running transcode on '%s'", file_path)
 
     tmpdir = tempfile.mkdtemp()
-    file_name = file_path.split('/')[-1].split('.')[0]
+    file_name = file_path.split('/')[-1]
     file_base = '/'.join(file_path.split('/')[:-1])
-    out_file = "{}/{}.mkv".format(tmpdir, file_name)
+    out_file = "{}/{}".format(tmpdir, file_name)
     logger.info("Writing output to '%s'", out_file)
 
     subprocess.check_call(["HandBrakeCLI", "-i", file_path, '-f', 'mkv', '--preset', 'Fast 1080p30', '--optimize',
@@ -118,6 +119,8 @@ def replace_file(src, dest, next_step=None):
 
 def post_process(grab_path):
     logger.info("post_process started for '%s'", grab_path)
+    # Give plex a few seconds to update its DB with the new recording
+    time.sleep(3)
     plex = PlexPostProcess(BASE_URL, TOKEN)
 
     file_details = plex.parse_filename(grab_path)
