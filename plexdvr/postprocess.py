@@ -89,22 +89,24 @@ class PlexPostProcess(object):
 
 
 def comskip(file_path):
-    print("comskip", file_path)
+    # TODO: Refactor PlexComskip into a project module for more control
+    logger.info("Running comskip on %s", file_path)
     subprocess.check_call(['python', '/opt/PlexComskip/PlexComskip.py', file_path])
 
 
 def transcode(file_path):
-    print("transcode", file_path)
-    return
-    try:
-        file_name = file_path.split('/')[-1].split('.')[0]
-        temp_file = tempfile.NamedTemporaryFile()
-        subprocess.check_call(["HandBrakeCLI", "-i", file_path, '-f', 'mkv', '--preset', 'Fast 1080p30', '--optimize',
-                               temp_file.name])
-        shutil.move(temp_file.name, file_path)
-        os.rename(file_path, file_name+'.mkv')
-    finally:
-        temp_file.close()
+    logger.info("Running transcode on %s", file_path)
+
+    tmpdir = tempfile.mkdtemp()
+    file_name = file_path.split('/')[-1].split('.')[0]
+    file_base = '/'.join(file_path.split('/')[:-1])
+    out_file = "{}/{}.mkv".format(tmpdir, file_name)
+    logger.info("Writing output to %s", out_file)
+
+    subprocess.check_call(["HandBrakeCLI", "-i", file_path, '-f', 'mkv', '--preset', 'Fast 1080p30', '--optimize',
+                           out_file])
+    shutil.move(out_file, file_base)
+    os.remove(file_path)
 
 
 def replace_file(src, dest, next_step=None):
