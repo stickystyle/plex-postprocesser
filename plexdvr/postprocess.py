@@ -66,19 +66,29 @@ class PlexPostProcess(object):
                     if file_name == search_file:
                         return show
 
+    def get_active_sessions(self):
+        return self.plex.sessions()
+
 
 def comskip(file_path):
     subprocess.check_call(['python', '/opt/post_process.py', file_path])
 
 
 def transcode(file_path):
+    print("transcode", file_path)
+    return
     try:
+        file_name = file_path.split('/')[-1].split('.')[0]
         temp_file = tempfile.NamedTemporaryFile()
         subprocess.check_call(["HandBrakeCLI", "-i", file_path, '-f', 'mkv', '--preset', 'Fast 1080p30', '--optimize',
                                temp_file.name])
         shutil.move(temp_file.name, file_path)
+        os.rename(file_path, file_name+'.mkv')
     finally:
         temp_file.close()
+
+
+def replace_file(src, dest, next_step=None):
     pass
 
 
@@ -95,6 +105,3 @@ def post_process(grab_path):
 
     transcode(file_path)
 
-
-if __name__ == '__main__':
-    in_file_name = '/data/TV Shows/.grab/aa7001b606692bd67acbf97bacc4046311674b6c/The Amazing World of Gumball (2011) - S05E17 - The Box.ts'  # noqa
