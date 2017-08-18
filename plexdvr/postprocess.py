@@ -5,15 +5,21 @@ import subprocess
 import tempfile
 import os
 import shutil
+import logging
 
 from plexapi.server import PlexServer
 
 BASE_URL = os.environ.get('BASE_URL')
 TOKEN = os.environ.get('TOKEN')
 
+logging.basicConfig(level=logging.INFO)
+
+logger = logging.getLogger(__name__)
+
 
 class PlexPostProcess(object):
     def __init__(self, baseurl, token):
+        logger.info("Init PlexServer @ %s", baseurl)
         self.plex = PlexServer(baseurl, token)
 
     @staticmethod
@@ -22,6 +28,7 @@ class PlexPostProcess(object):
         title_episode = re.search(
             "\.grab/\w+/(?P<item>.*)\((?P<year>\d+)\)(\s-\s(?P<episode>.*)\s-\s(?P<title>.*))?\.\w+", file_name)
         if title_episode:
+            logger.debug("%s is Show", file_name)
             groups = title_episode.groupdict()
             res['item'] = groups['item'].strip()
             res['year'] = int(groups['year'])
@@ -40,6 +47,7 @@ class PlexPostProcess(object):
                     date_episode = datetime.datetime.strptime(episode.strip(), "%Y-%m-%d %H %M %S")
                     res['season'] = date_episode.year
             else:
+                logger.debug("%s is Movie", file_name)
                 # Movie
                 res['item_type'] = 'Movie'
         return res
@@ -48,23 +56,29 @@ class PlexPostProcess(object):
     def get_item_path(item):
         for part in item.iterParts():
             if "Plex Versions" in part.file:
+                logger.debug("%s is a plex version", part.file)
                 continue
             if os.path.isfile(part.file):
+                logger.info("The file for %s is %s", item, part.file)
                 return part.file
 
     def get_episode(self, title, search_file):
-        print(title, search_file)
+        logger.info("Searching for %s with filename %s", title, search_file)
         search_res = self.plex.library.search(title=title)
-        print(search_res)
+        logger.info("Found matching items %s", search_res)
+        if not search_res:
+            logger.error("Did not find an item for %s with filename %s", title, search_file)
         for show in search_res:
             try:
                 for episode in show.episodes():
-                    print(episode)
+                    logging.debug("Checking episode %s", episode)
                     for part in episode.iterParts():
                         file_name = part.file.split('/')[-1]
                         if file_name == search_file:
                             return episode
             except TypeError:
+                logger.debug("Item looks to be a movie")
+                # Movie
                 for part in show.iterParts():
                     file_name = part.file.split('/')[-1]
                     if file_name == search_file:
@@ -98,14 +112,16 @@ def replace_file(src, dest, next_step=None):
 
 
 def post_process(grab_path):
+    logger.info("post_process started for %s", grab_path)
     plex = PlexPostProcess(BASE_URL, TOKEN)
 
     file_details = plex.parse_filename(grab_path)
-    print(file_details)
+    logger.info("File details %s", file_details)
     item = plex.get_episode(title=file_details['item'],
                             search_file=grab_path.split('/')[-1])
-    print("found", item)
+    logger.info("Found item %s", item)
     file_path = plex.get_item_path(item)
+    logger.info("Item has path %s", file_path)
 
     comskip(file_path)
 
