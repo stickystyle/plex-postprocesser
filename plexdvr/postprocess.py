@@ -95,18 +95,21 @@ def comskip(file_path):
 
 
 def transcode(file_path):
-    logger.info("Running transcode on %s", file_path)
+    logger.info("Running transcode on '%s'", file_path)
 
     tmpdir = tempfile.mkdtemp()
     file_name = file_path.split('/')[-1].split('.')[0]
     file_base = '/'.join(file_path.split('/')[:-1])
     out_file = "{}/{}.mkv".format(tmpdir, file_name)
-    logger.info("Writing output to %s", out_file)
+    logger.info("Writing output to '%s'", out_file)
 
     subprocess.check_call(["HandBrakeCLI", "-i", file_path, '-f', 'mkv', '--preset', 'Fast 1080p30', '--optimize',
-                           out_file])
-    shutil.move(out_file, file_base)
-    os.remove(file_path)
+                           '-o', out_file])
+    logger.info("moving '%s' to '%s'", out_file, file_path)
+    # Writing the file back to its original name (with .ts ext)  so it is still listed in the 
+    # 'Recording Schedule' page of Plex 
+    shutil.move(out_file, file_path)
+    # os.remove(file_path)
 
 
 def replace_file(src, dest, next_step=None):
@@ -114,7 +117,7 @@ def replace_file(src, dest, next_step=None):
 
 
 def post_process(grab_path):
-    logger.info("post_process started for %s", grab_path)
+    logger.info("post_process started for '%s'", grab_path)
     plex = PlexPostProcess(BASE_URL, TOKEN)
 
     file_details = plex.parse_filename(grab_path)
@@ -123,7 +126,7 @@ def post_process(grab_path):
                             search_file=grab_path.split('/')[-1])
     logger.info("Found item %s", item)
     file_path = plex.get_item_path(item)
-    logger.info("Item has path %s", file_path)
+    logger.info("Item has path '%s'", file_path)
 
     comskip(file_path)
 
