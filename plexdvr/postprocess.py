@@ -49,13 +49,17 @@ class PlexPostProcess(object):
         for part in item.iterParts():
             if "Plex Versions" in part.file:
                 continue
-            return part.file
+            if os.path.isfile(part.file):
+                return part.file
 
     def get_episode(self, title, search_file):
+        print(title, search_file)
         search_res = self.plex.library.search(title=title)
+        print(search_res)
         for show in search_res:
             try:
                 for episode in show.episodes():
+                    print(episode)
                     for part in episode.iterParts():
                         file_name = part.file.split('/')[-1]
                         if file_name == search_file:
@@ -68,10 +72,13 @@ class PlexPostProcess(object):
 
 
 def comskip(file_path):
-    subprocess.check_call(['python', '/opt/post_process.py', file_path])
+    print("comskip", file_path)
+    subprocess.check_call(['python', '/opt/PlexComskip/PlexComskip.py', file_path])
 
 
 def transcode(file_path):
+    print("transcode")
+    return
     try:
         temp_file = tempfile.NamedTemporaryFile()
         subprocess.check_call(["HandBrakeCLI", "-i", file_path, '-f', 'mkv', '--preset', 'Fast 1080p30', '--optimize',
@@ -89,12 +96,10 @@ def post_process(grab_path):
     print(file_details)
     item = plex.get_episode(title=file_details['item'],
                             search_file=grab_path.split('/')[-1])
+    print("found", item)
     file_path = plex.get_item_path(item)
 
     comskip(file_path)
 
     transcode(file_path)
 
-
-if __name__ == '__main__':
-    in_file_name = '/data/TV Shows/.grab/aa7001b606692bd67acbf97bacc4046311674b6c/The Amazing World of Gumball (2011) - S05E17 - The Box.ts'  # noqa

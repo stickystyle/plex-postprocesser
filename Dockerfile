@@ -6,7 +6,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y python3 git build-essential libargtable2-dev autoconf \
     libtool-bin ffmpeg libsdl1.2-dev libavutil-dev libavformat-dev libavcodec-dev \
-    mkvtoolnix software-properties-common python-pip
+    mkvtoolnix software-properties-common python-pip sudo
 
 RUN add-apt-repository ppa:stebbins/handbrake-releases && \
     apt-get update && \
@@ -39,12 +39,13 @@ RUN apt-get -y autoremove && \
     rm -rf /tmp/* && \
     rm -rf /var/tmp/*
 
-ADD plexdvr/ /opt/plexdvr/
+ADD plexdvr/setup.sh /opt/setup.sh
+ADD plexdvr/requirements.txt /opt/requirements.txt
 
-RUN /opt/plexdvr/setup.sh
+RUN /opt/setup.sh
 
-RUN pip install --no-cache-dir -r /opt/plexdvr/requirements.txt
+RUN pip install --no-cache-dir -r /opt/requirements.txt
 
-VOLUME /data
+VOLUME /data /opt/plexdvr
 
-ENTRYPOINT ["rq"]
+#ENTRYPOINT ["rq"]
