@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 class PlexPostProcess(object):
     def __init__(self, baseurl, token):
-        logger.info("Init PlexServer @ %s", baseurl)
+        logger.info("Init PlexServer @ '%s'", baseurl)
         self.plex = PlexServer(baseurl, token)
 
     @staticmethod
@@ -29,7 +29,7 @@ class PlexPostProcess(object):
         title_episode = re.search(
             "\.grab/\w+/(?P<item>.*)\((?P<year>\d+)\)(\s-\s(?P<episode>.*)\s-\s(?P<title>.*))?\.\w+", file_name)
         if title_episode:
-            logger.debug("%s is Show", file_name)
+            logger.debug("'%s' is Show", file_name)
             groups = title_episode.groupdict()
             res['item'] = groups['item'].strip()
             res['year'] = int(groups['year'])
@@ -48,7 +48,7 @@ class PlexPostProcess(object):
                     date_episode = datetime.datetime.strptime(episode.strip(), "%Y-%m-%d %H %M %S")
                     res['season'] = date_episode.year
             else:
-                logger.debug("%s is Movie", file_name)
+                logger.debug("'%s' is Movie", file_name)
                 # Movie
                 res['item_type'] = 'Movie'
         return res
@@ -57,18 +57,18 @@ class PlexPostProcess(object):
     def get_item_path(item):
         for part in item.iterParts():
             if "Plex Versions" in part.file:
-                logger.debug("%s is a plex version", part.file)
+                logger.debug("'%s' is a plex version", part.file)
                 continue
             if os.path.isfile(part.file):
-                logger.info("The file for %s is %s", item, part.file)
+                logger.info("The file for %s is '%s'", item, part.file)
                 return part.file
 
     def get_episode(self, title, search_file):
-        logger.info("Searching for %s with filename %s", title, search_file)
+        logger.info("Searching for '%s' with filename '%s'", title, search_file)
         search_res = self.plex.library.search(title=title)
         logger.info("Found matching items %s", search_res)
         if not search_res:
-            logger.error("Did not find an item for %s with filename %s", title, search_file)
+            logger.error("Did not find an item for %s with filename '%s'", title, search_file)
         for show in search_res:
             try:
                 for episode in show.episodes():
@@ -91,7 +91,7 @@ class PlexPostProcess(object):
 
 def comskip(file_path):
     # TODO: Refactor PlexComskip into a project module for more control
-    logger.info("Running comskip on %s", file_path)
+    logger.info("Running comskip on '%s'", file_path)
     subprocess.check_call(['python', '/opt/PlexComskip/PlexComskip.py', file_path])
 
 
