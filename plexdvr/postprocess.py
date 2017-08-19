@@ -27,6 +27,7 @@ r = StrictRedis().from_url(url=RQ_REDIS_URL)
 
 transcode_queue = Queue('transcode', connection=r)
 
+
 class PlexPostProcess(object):
     def __init__(self, baseurl, token):
         logger.info("Init PlexServer @ '%s'", baseurl)
@@ -106,14 +107,15 @@ def comskip(file_path):
 
 
 def transcode(file_path, genres):
+    # TODO: Validate that the resulting file is smaller than the source, just like PlexComSkip
     logger.info("Running transcode on '%s'", file_path)
     file_base, file_name = os.path.split(file_path)
     tmpdir = tempfile.mkdtemp()
-    out_file = "{}/{}".format(tmpdir, file_name)
+    out_file = "{}/{}.mp4".format(tmpdir, file_name.split('.')[0:-1])
     logger.info("Writing output to '%s'", out_file)
     
     cmd = ["HandBrakeCLI", "-i", file_path, '-f', 'mkv', '--preset', HB_PRESET, '--optimize',
-          '-o', out_file]
+           '-o', out_file]
 
     if 'Animation' in genres:
         logger.info("Adding x264 animation tune")
@@ -121,22 +123,27 @@ def transcode(file_path, genres):
     logger.debug("Executing HB with the command %s", cmd)
 
     subprocess.check_call(cmd)
-    logger.info("moving '%s' to '%s'", out_file, file_path) # Writing the file back to its original name (with .ts ext)  so it is still listed in the # 'Recording Schedule' page of Plex # TODO: Validate that the resulting file is smaller than the source, just like PlexComSkip
-    shutil.move(out_file, file_path)
-    # os.remove(file_path)
+    logger.info("moving '%s' to '%s'", out_file, file_base)
+    shutil.move(out_file, file_base)
+    logger.info("removing '%s'", file_path)
+    os.remove(file_path)
 
 
-def replace_file(src, dest, next_step=None):
-    pass
-
-def remux(input_file):
+def remux(file_path):
     logger.info("Running remux on '%s'", file_path)
     file_base, file_name = os.path.split(file_path)
     tmpdir = tempfile.mkdtemp()
-    out_file = "{}/{}".format(tmpdir, file_name)
+    out_file = "{}/{}.mp4".format(tmpdir, file_name.split('.')[0:-1])
     logger.info("Writing output to '%s'", out_file)
 
-    cmd = ['ffmpeg', '-i', input_file, '-c', 'copy', '-map', '0', out_file]
+    cmd = ['ffmpeg', '-i', file_path, '-c', 'copy', '-map', '0', out_file]
+
+    subprocess.check_call(cmd)
+    logger.info("moving '%s' to '%s'", out_file, file_base)
+    shutil.move(out_file, file_base)
+    logger.info("removing '%s'", file_path)
+    os.remove(file_path)
+
 
 def post_process(grab_path):
     logger.info("post_process started for '%s'", grab_path)
@@ -158,5 +165,7 @@ def post_process(grab_path):
     media = item.media[0]
     if media.videoCodec != 'h264':
         transcode_queue.enqueue(transcode, file_path, genres, result_ttl="6h", timeout="6h")
+    elif media.container != 'mp4':
+        remux(file_path)
 
 
