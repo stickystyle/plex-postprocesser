@@ -8,15 +8,24 @@ import os
 import shutil
 import logging
 
+from rq import Queue
+from redis import StrictRedis
+
 from plexapi.server import PlexServer
 
-BASE_URL = os.environ.get('BASE_URL')
-TOKEN = os.environ.get('TOKEN')
+BASE_URL = os.getenv('BASE_URL')
+TOKEN = os.getenv('TOKEN')
+RQ_TIMEOUT = os.getenv("RQ_TIMEOUT", "6h")
+RQ_REDIS_URL = os.getenv("RQ_REDIS_URL", "redis://localhost:6379")
+HB_PRESET = os.getenv("HB_PRESET", "Fast 1080p30")
 
 logging.basicConfig(level=logging.INFO)
 
 logger = logging.getLogger(__name__)
 
+r = StrictRedis().from_url(url=RQ_REDIS_URL)
+
+transcode_queue = Queue('transcode', connection=r)
 
 class PlexPostProcess(object):
     def __init__(self, baseurl, token):
@@ -91,24 +100,28 @@ class PlexPostProcess(object):
 
 def comskip(file_path):
     # TODO: Refactor PlexComskip into a project module for more control
+    # TODO: Add config option that allows custom comskip.ini file per show / network
     logger.info("Running comskip on '%s'", file_path)
     subprocess.check_call(['python', '/opt/PlexComskip/PlexComskip.py', file_path])
 
 
-def transcode(file_path):
+def transcode(file_path, genres):
     logger.info("Running transcode on '%s'", file_path)
-
+    file_base, file_name = os.path.split(file_path)
     tmpdir = tempfile.mkdtemp()
-    file_name = file_path.split('/')[-1]
-    file_base = '/'.join(file_path.split('/')[:-1])
     out_file = "{}/{}".format(tmpdir, file_name)
     logger.info("Writing output to '%s'", out_file)
+    
+    cmd = ["HandBrakeCLI", "-i", file_path, '-f', 'mkv', '--preset', HB_PRESET, '--optimize',
+          '-o', out_file]
 
-    subprocess.check_call(["HandBrakeCLI", "-i", file_path, '-f', 'mkv', '--preset', 'Fast 1080p30', '--optimize',
-                           '-o', out_file])
-    logger.info("moving '%s' to '%s'", out_file, file_path)
-    # Writing the file back to its original name (with .ts ext)  so it is still listed in the 
-    # 'Recording Schedule' page of Plex 
+    if 'Animation' in genres:
+        logger.info("Adding x264 animation tune")
+        cmd.extend(['--encoder-tune', 'animation'])
+    logger.debug("Executing HB with the command %s", cmd)
+
+    subprocess.check_call(cmd)
+    logger.info("moving '%s' to '%s'", out_file, file_path) # Writing the file back to its original name (with .ts ext)  so it is still listed in the # 'Recording Schedule' page of Plex # TODO: Validate that the resulting file is smaller than the source, just like PlexComSkip
     shutil.move(out_file, file_path)
     # os.remove(file_path)
 
@@ -116,6 +129,14 @@ def transcode(file_path):
 def replace_file(src, dest, next_step=None):
     pass
 
+def remux(input_file):
+    logger.info("Running remux on '%s'", file_path)
+    file_base, file_name = os.path.split(file_path)
+    tmpdir = tempfile.mkdtemp()
+    out_file = "{}/{}".format(tmpdir, file_name)
+    logger.info("Writing output to '%s'", out_file)
+
+    cmd = ['ffmpeg', '-i', input_file, '-c', 'copy', '-map', '0', out_file]
 
 def post_process(grab_path):
     logger.info("post_process started for '%s'", grab_path)
@@ -133,5 +154,9 @@ def post_process(grab_path):
 
     comskip(file_path)
 
-    transcode(file_path)
+    genres = [x.tag for x in item.show().genres]
+    media = item.media[0]
+    if media.videoCodec != 'h264':
+        transcode_queue.enqueue(transcode, file_path, genres, result_ttl="6h", timeout="6h")
+
 
