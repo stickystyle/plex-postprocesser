@@ -103,12 +103,18 @@ def comskip(file_path):
     # TODO: Refactor PlexComskip into a project module for more control
     # TODO: Add config option that allows custom comskip.ini file per show / network
     logger.info("Running comskip on '%s'", file_path)
+    if not os.path.isfile(file_path):
+        logger.warning("%s does not exist", file_path)
+        returngit
     subprocess.check_call(['python', '/opt/PlexComskip/PlexComskip.py', file_path])
 
 
 def transcode(file_path, genres):
     # TODO: Validate that the resulting file is smaller than the source, just like PlexComSkip
     logger.info("Running transcode on '%s'", file_path)
+    if not os.path.isfile(file_path):
+        logger.warning("%s does not exist", file_path)
+        return
     file_base, file_name = os.path.split(file_path)
     tmpdir = tempfile.mkdtemp()
     out_file = "{}/{}.mp4".format(tmpdir, '.'.join(file_name.split('.')[0:-1]).strip())
@@ -131,6 +137,9 @@ def transcode(file_path, genres):
 
 def remux(file_path):
     logger.info("Running remux on '%s'", file_path)
+    if not os.path.isfile(file_path):
+        logger.warning("%s does not exist", file_path)
+        return
     file_base, file_name = os.path.split(file_path)
     tmpdir = tempfile.mkdtemp()
     out_file = "{}/{}.mp4".format(tmpdir, '.'.join(file_name.split('.')[0:-1]).strip())
