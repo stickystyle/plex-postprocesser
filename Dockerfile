@@ -32,6 +32,9 @@ RUN cd /opt && \
     touch /var/log/PlexComskip.log && \
     chmod 777 /var/log/PlexComskip.log
 
+ADD comskip.ini /opt/PlexComskip/comskip.ini
+ADD PlexComskip.conf /opt/PlexComskip/PlexComskip.conf
+
 # Cleanup
 RUN apt-get -y autoremove && \
     apt-get -y clean && \
