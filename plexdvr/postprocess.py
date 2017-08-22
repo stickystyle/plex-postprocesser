@@ -111,21 +111,21 @@ def transcode(file_path, genres):
     logger.info("Running transcode on '%s'", file_path)
     file_base, file_name = os.path.split(file_path)
     tmpdir = tempfile.mkdtemp()
-    out_file = "{}/{}.mp4".format(tmpdir, file_name.split('.')[0:-1])
-    logger.info("Writing output to '%s'", out_file)
+    out_file = "{}/{}.mp4".format(tmpdir, '.'.join(file_name.split('.')[0:-1]).strip())
+    logger.info("Transcode writing output to '%s'", out_file)
     
-    cmd = ["HandBrakeCLI", "-i", file_path, '-f', 'mkv', '--preset', HB_PRESET, '--optimize',
+    cmd = ["HandBrakeCLI", "-i", file_path, '-f', 'mp4', '--preset', HB_PRESET, '--optimize',
            '-o', out_file]
 
     if 'Animation' in genres:
         logger.info("Adding x264 animation tune")
         cmd.extend(['--encoder-tune', 'animation'])
-    logger.debug("Executing HB with the command %s", cmd)
+    logger.debug("Executing HB transcode with the command %s", cmd)
 
     subprocess.check_call(cmd)
-    logger.info("moving '%s' to '%s'", out_file, file_base)
+    logger.info("Transcode moving '%s' to '%s'", out_file, file_base)
     shutil.move(out_file, file_base)
-    logger.info("removing '%s'", file_path)
+    logger.info("Transcode removing '%s'", file_path)
     os.remove(file_path)
 
 
@@ -133,15 +133,15 @@ def remux(file_path):
     logger.info("Running remux on '%s'", file_path)
     file_base, file_name = os.path.split(file_path)
     tmpdir = tempfile.mkdtemp()
-    out_file = "{}/{}.mp4".format(tmpdir, file_name.split('.')[0:-1])
-    logger.info("Writing output to '%s'", out_file)
+    out_file = "{}/{}.mp4".format(tmpdir, '.'.join(file_name.split('.')[0:-1]).strip())
+    logger.info("Remux writing output to '%s'", out_file)
 
     cmd = ['ffmpeg', '-i', file_path, '-c', 'copy', '-map', '0', out_file]
 
     subprocess.check_call(cmd)
-    logger.info("moving '%s' to '%s'", out_file, file_base)
+    logger.info("Remux moving '%s' to '%s'", out_file, file_base)
     shutil.move(out_file, file_base)
-    logger.info("removing '%s'", file_path)
+    logger.info("Remux removing '%s'", file_path)
     os.remove(file_path)
 
 
