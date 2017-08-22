@@ -7,6 +7,7 @@ import tempfile
 import os
 import shutil
 import logging
+import json
 
 from rq import Queue
 from redis import StrictRedis
@@ -99,13 +100,25 @@ class PlexPostProcess(object):
         return self.plex.sessions()
 
 
+def get_metadata(file_path):
+    logger.info("Getting metadata for '%s'", file_path)
+    if not os.path.isfile(file_path):
+        logger.warning("'%s' does not exist", file_path)
+        return
+    cmd = ["/usr/bin/ffprobe", "-hide_banner", "-v", "quiet", "-print_format", "json",
+           "-show_format", "-show_streams", "-i", file_path]
+    ffmpeg = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+    out, err = ffmpeg.communicate()
+    return json.loads(out)
+
+
 def comskip(file_path):
     # TODO: Refactor PlexComskip into a project module for more control
     # TODO: Add config option that allows custom comskip.ini file per show / network
     logger.info("Running comskip on '%s'", file_path)
     if not os.path.isfile(file_path):
         logger.warning("%s does not exist", file_path)
-        returngit
+        return
     subprocess.check_call(['python', '/opt/PlexComskip/PlexComskip.py', file_path])
 
 
@@ -170,11 +183,17 @@ def post_process(grab_path):
 
     comskip(file_path)
 
-    genres = [x.tag for x in item.show().genres]
-    media = item.media[0]
-    if media.videoCodec != 'h264':
+    vid_stream = {}
+    metadata = get_metadata(file_path)
+    for stream in metadata['streams']:
+        if stream['codec_type'] == 'video':
+            vid_stream = stream
+            break
+
+    if vid_stream['codec_name'] != 'h264':
+        genres = [x.tag for x in item.show().genres]
         transcode_queue.enqueue(transcode, file_path, genres, result_ttl="6h", timeout="6h")
-    elif media.container != 'mp4':
+    elif metadata['format']['format_name'] != "mov,mp4,m4a,3gp,3g2,mj2":
         remux(file_path)
 
 
